@@ -349,6 +349,8 @@
     });
   }
 
+  let renderToken = 0;
+
   function buildStrip(images){
     currentImages = images;
     renderStrip();
@@ -357,8 +359,15 @@
   }
 
   async function renderStrip(){
+    const myToken = ++renderToken;
+    const filterAtStart = currentFilter;
+    const filtered = await Promise.all(currentImages.map(src => applyFilterToImage(src, filterAtStart)));
+
+    // If another render started after this one (e.g. user clicked another
+    // filter while this was still processing), discard this stale result.
+    if (myToken !== renderToken) return;
+
     strip.innerHTML = '';
-    const filtered = await Promise.all(currentImages.map(src => applyFilterToImage(src, currentFilter)));
     filtered.forEach(src => {
       const wrap = document.createElement('div');
       wrap.className = 'strip-shot';
