@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Photobooth</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.47.0/iconfont/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: #1a1a18;
+    color: #f1efe8;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+  .app {
+    max-width: 480px;
+    width: 100%;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 500;
+    text-align: center;
+    margin: 0 0 0.25rem;
+    letter-spacing: 0.5px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #b4b2a9;
+    font-size: 14px;
+    margin: 0 0 1.5rem;
+  }
+  .tabs { display: flex; gap: 8px; margin-bottom: 1rem; }
+  button {
+    background: transparent;
+    border: 1px solid #5f5e5a;
+    color: #f1efe8;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover:not(:disabled) { background: #2c2c2a; }
+  button:active:not(:disabled) { transform: scale(0.98); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .tab-btn { flex: 1; }
+  .tab-btn.active { border-color: #d85a30; color: #f0997b; }
+  #cam-panel, #upload-panel {}
+  .cam-frame {
+    position: relative;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 4/3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  #countdown {
+    position: absolute;
+    font-size: 72px;
+    color: #fff;
+    font-weight: 500;
+    display: none;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  }
+  #cam-msg {
+    position: absolute;
+    color: #fff;
+    font-size: 14px;
+    text-align: center;
+    padding: 0 1rem;
+  }
+  .cam-controls { display: flex; gap: 8px; margin-top: 12px; }
+  .cam-controls button { flex: 1; }
+  #shot-count, #upload-count {
+    font-size: 13px;
+    color: #b4b2a9;
+    text-align: center;
+    margin-top: 8px;
+  }
+  .dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed #5f5e5a;
+    border-radius: 8px;
+    padding: 2.5rem 1rem;
+    cursor: pointer;
+    text-align: center;
+  }
+  .dropzone:hover { border-color: #888780; background: #222220; }
+  .dropzone i { font-size: 28px; color: #b4b2a9; }
+  .dropzone span { font-size: 14px; color: #b4b2a9; margin-top: 10px; }
+  #strip-section { margin-top: 1.5rem; display: none; }
+  .strip-wrap { display: flex; justify-content: center; }
+  #strip {
+    background: #fff;
+    padding: 16px 16px 28px;
+    width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-radius: 4px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+  .strip-shot { width: 100%; aspect-ratio: 4/3; overflow: hidden; background: #111; }
+  .strip-shot img { width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(1) contrast(1.15) brightness(0.95); }
+  .strip-caption {
+    text-align: center;
+    font-family: Georgia, serif;
+    font-size: 13px;
+    color: #222;
+    letter-spacing: 1px;
+    margin: 4px 0 0;
+  }
+  .final-controls { display: flex; gap: 8px; margin-top: 1rem; }
+  .final-controls button { flex: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Photobooth</h1>
+  <p class="subtitle">Four shots, one strip — just like the real thing</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-cam">Use camera</button>
+    <button class="tab-btn" id="tab-upload">Upload photos</button>
+  </div>
+
+  <div id="cam-panel">
+    <div class="cam-frame">
+      <video id="video" autoplay playsinline></video>
+      <canvas id="canvas" style="display:none"></canvas>
+      <div id="countdown"></div>
+      <p id="cam-msg">Click "start camera" to begin</p>
+    </div>
+    <div class="cam-controls">
+      <button id="start-cam"><i class="ti ti-camera"></i> Start camera</button>
+      <button id="capture-btn" disabled><i class="ti ti-player-play"></i> Take 4 photos</button>
+    </div>
+    <p id="shot-count">0 of 4 captured</p>
+  </div>
+
+  <div id="upload-panel" style="display:none">
+    <label for="file-input" class="dropzone">
+      <i class="ti ti-upload"></i>
+      <span>Choose exactly 4 photos for your strip</span>
+    </label>
+    <input id="file-input" type="file" accept="image/*" multiple style="display:none" />
+    <p id="upload-count">0 of 4 selected</p>
+  </div>
+
+  <div id="strip-section">
+    <div class="strip-wrap">
+      <div id="strip"></div>
+    </div>
+    <div class="final-controls">
+      <button id="download-btn"><i class="ti ti-download"></i> Download strip</button>
+      <button id="reset-btn"><i class="ti ti-refresh"></i> Start over</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+(function(){
+  let stream = null;
+  let shots = [];
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const camMsg = document.getElementById('cam-msg');
+  const countdownEl = document.getElementById('countdown');
+  const startCamBtn = document.getElementById('start-cam');
+  const captureBtn = document.getElementById('capture-btn');
+  const shotCount = document.getElementById('shot-count');
+  const uploadCount = document.getElementById('upload-count');
+  const fileInput = document.getElementById('file-input');
+  const stripSection = document.getElementById('strip-section');
+  const strip = document.getElementById('strip');
+  const tabCam = document.getElementById('tab-cam');
+  const tabUpload = document.getElementById('tab-upload');
+  const camPanel = document.getElementById('cam-panel');
+  const uploadPanel = document.getElementById('upload-panel');
+
+  function setTab(which){
+    tabCam.classList.toggle('active', which==='cam');
+    tabUpload.classList.toggle('active', which==='upload');
+    camPanel.style.display = which==='cam' ? 'block' : 'none';
+    uploadPanel.style.display = which==='upload' ? 'block' : 'none';
+  }
+  tabCam.onclick = () => setTab('cam');
+  tabUpload.onclick = () => setTab('upload');
+
+  startCamBtn.onclick = async () => {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      video.srcObject = stream;
+      camMsg.style.display = 'none';
+      captureBtn.disabled = false;
+      startCamBtn.disabled = true;
+    } catch(e) {
+      camMsg.textContent = "Couldn't access camera. Try the upload option instead.";
+    }
+  };
+
+  function snap(){
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.translate(canvas.width,0);
+    ctx.scale(-1,1);
+    ctx.drawImage(video,0,0);
+    return canvas.toDataURL('image/jpeg', 0.92);
+  }
+
+  function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+  captureBtn.onclick = async () => {
+    shots = [];
+    captureBtn.disabled = true;
+    startCamBtn.disabled = true;
+    for (let i=0;i<4;i++){
+      for (let c=3;c>0;c--){
+        countdownEl.textContent = c;
+        countdownEl.style.display = 'flex';
+        await wait(700);
+      }
+      countdownEl.style.display = 'none';
+      shots.push(snap());
+      shotCount.textContent = shots.length + ' of 4 captured';
+      await wait(300);
+    }
+    buildStrip(shots);
+    captureBtn.disabled = false;
+  };
+
+  fileInput.onchange = (e) => {
+    const files = Array.from(e.target.files).slice(0,4);
+    uploadCount.textContent = files.length + ' of 4 selected';
+    if (files.length < 4) return;
+    const readers = files.map(f => new Promise(res => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.readAsDataURL(f);
+    }));
+    Promise.all(readers).then(buildStrip);
+  };
+
+  function buildStrip(images){
+    strip.innerHTML = '';
+    images.forEach(src => {
+      const wrap = document.createElement('div');
+      wrap.className = 'strip-shot';
+      const img = document.createElement('img');
+      img.src = src;
+      wrap.appendChild(img);
+      strip.appendChild(wrap);
+    });
+    const caption = document.createElement('p');
+    caption.className = 'strip-caption';
+    caption.textContent = 'photobooth';
+    strip.appendChild(caption);
+    stripSection.style.display = 'block';
+    stripSection.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  document.getElementById('download-btn').onclick = () => {
+    html2canvas(strip, {backgroundColor:'#ffffff', scale:3}).then(c => {
+      const link = document.createElement('a');
+      link.download = 'photo-strip.png';
+      link.href = c.toDataURL('image/png');
+      link.click();
+    });
+  };
+
+  document.getElementById('reset-btn').onclick = () => {
+    shots = [];
+    shotCount.textContent = '0 of 4 captured';
+    uploadCount.textContent = '0 of 4 selected';
+    fileInput.value = '';
+    stripSection.style.display = 'none';
+    if (stream){
+      stream.getTracks().forEach(t=>t.stop());
+      stream = null;
+      startCamBtn.disabled = false;
+      captureBtn.disabled = true;
+      camMsg.style.display = 'block';
+      camMsg.textContent = 'Click "start camera" to begin';
+    }
+  };
+})();
+</script>
+</body>
+</html>
